@@ -1,11 +1,8 @@
-use crate::buffer_attachment::*;
-use crate::line::*;
-use crate::math::*;
-use crate::shader::lerp;
+use crate::{buffer_attachment::*, line::*, math::*, shader::*, triangle::*};
 pub struct Renderer {
     height: usize,
     width: usize,
-    color_attachment: BufferAttachment<Vec3<u8>>,
+    pub color_attachment: BufferAttachment<Vec3<u8>>,
     depth_attachment: BufferAttachment<f32>,
 }
 
@@ -24,35 +21,40 @@ impl Renderer {
     }
 
     pub fn draw_line(&mut self, line: &Line) {
-        let mut x0 = (((line.start.position.x + 1.) / 2.) * self.width as f32) as i32;
-        let mut y0 = (((line.start.position.y + 1.) / 2.) * self.height as f32) as i32;
-        let x1 = (((line.end.position.x + 1.) / 2.) * self.width as f32) as i32;
-        let y1 = (((line.end.position.y + 1.) / 2.) * self.height as f32) as i32;
+        let mut x0 = (((line.start.position.x + 1.) / 2.) * (self.width - 1) as f32) as i32;
+        let mut y0 = (((-line.start.position.y + 1.) / 2.) * (self.height - 1) as f32) as i32;
+        let x1 = (((line.end.position.x + 1.) / 2.) * (self.width - 1) as f32) as i32;
+        let y1 = (((-line.end.position.y + 1.) / 2.) * (self.height - 1) as f32) as i32;
+        let dx: i32 = (x1 - x0).abs();
+        let dy: i32 = (y1 - y0).abs();
         if x0 == x1 {
-            for i in y0..y1 {
+            for i in std::cmp::min(y0, y1)..std::cmp::max(y0, y1) {
+                let t: f32 = i as f32 / dy as f32;
+                let color = lerp(line.start.attrib.color, line.end.attrib.color, t);
                 self.color_attachment
-                    .set(x0 as usize, i as usize, line.start.attrib.color.to_u8());
+                    .set(x0 as usize, i as usize, color.to_u8());
             }
         } else if y0 == y1 {
-            for i in x0..x1 {
-                let t: f32 = i as f32 / (x1 - x0) as f32;
+            for i in std::cmp::min(x0, x1)..std::cmp::max(x0, x1) {
+                let t: f32 = i as f32 / dx as f32;
                 let color = lerp(line.start.attrib.color, line.end.attrib.color, t);
                 self.color_attachment
                     .set(i as usize, y0 as usize, color.to_u8());
             }
         } else {
-            let dx: i32 = (x1 - x0).abs();
-            let dy: i32 = (y1 - y0).abs();
             let sx: i32 = if x0 < x1 { 1 } else { -1 };
             let sy: i32 = if y0 < y1 { 1 } else { -1 };
             let mut err = if dx > dy { dx / 2 } else { -dy / 2 };
+            let mut t = 0.0f32;
+            let dt = 1.0 / (if dx > dy { dx } else { dy }) as f32;
             let mut e2: i32;
             loop {
                 if x0 == x1 || y0 == y1 {
                     break;
                 }
-                self.color_attachment
-                    .set(x0 as usize, y0 as usize, line.start.attrib.color.to_u8());
+                let color = lerp(line.start.attrib.color, line.end.attrib.color, t).to_u8();
+                t += dt;
+                self.color_attachment.set(x0 as usize, y0 as usize, color);
                 e2 = err;
                 if e2 > -dx {
                     err -= dy;
@@ -84,6 +86,12 @@ impl Renderer {
             }
         }
         */
+    }
+
+    pub fn draw_triangle(&mut self, triangle: Triangle) {
+        self.draw_line(&Line::new(triangle[0], triangle[1]));
+        self.draw_line(&Line::new(triangle[0], triangle[2]));
+        self.draw_line(&Line::new(triangle[2], triangle[1]));
     }
 
     pub fn clear(&mut self) {

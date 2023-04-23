@@ -3,6 +3,7 @@ pub mod line;
 pub mod math;
 pub mod renderer;
 pub mod shader;
+pub mod triangle;
 
 #[cfg(test)]
 mod tests {

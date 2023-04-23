@@ -5,7 +5,7 @@ use crate::math::*;
 
 #[derive(Clone, Copy)]
 pub struct Attributes {
-    pub color: Vec3<f32>, // cannot use u8
+    pub color: Vec3<f32>, // cannot use u8 because cannot lerp u8
 }
 
 impl Attributes {
@@ -14,8 +14,9 @@ impl Attributes {
             ..Default::default()
         }
     }
-    pub fn set_color(&mut self, color: Vec3<f32>) {
-        self.color = color
+    pub fn set_color(&mut self, color: Vec3<f32>) -> &mut Self {
+        self.color = color;
+        self
     }
 }
 
@@ -50,5 +51,5 @@ pub fn lerp<T>(start: T, end: T, t: f32) -> T
 where
     T: Mul<f32, Output = T> + Add<Output = T>,
 {
-    return start * t + end * (1. - t);
+    return start * (1. - t) + end * t;
 }

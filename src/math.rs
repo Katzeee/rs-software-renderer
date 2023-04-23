@@ -25,10 +25,15 @@ macro_rules! def_genvec {
             )+
         }
 
-        impl<T> $class_name<T> {
+        impl<T: Copy> $class_name<T> {
             pub fn new($($attr_name: T, )+) -> Self {
                 Self {
                     $($attr_name: $attr_name,)+
+                }
+            }
+            pub fn from(value: T) -> Self {
+                Self {
+                    $($attr_name: value,)+
                 }
             }
         }
@@ -48,6 +53,10 @@ macro_rules! def_genvec {
                     $($attr_name: self.$attr_name / ls,)+
                 }
             }
+
+            pub fn to_u8(&self) -> $class_name<u8> {
+                $class_name::new($(self.$attr_name as u8,)+)
+            }
         }
 
         impl_op!($class_name, Add, add, + $(, $attr_name)+);
@@ -55,7 +64,20 @@ macro_rules! def_genvec {
         impl_op!($class_name, Mul, mul, * $(, $attr_name)+);
         impl_op!($class_name, Div, div, / $(, $attr_name)+);
 
+        impl<T: Mul<f32, Output = T>> Mul<f32> for $class_name<T> {
+            type Output = Self;
+            fn mul(self, rhs: f32) -> Self{
+                Self {
+                    $($attr_name: self.$attr_name * rhs,)+
+                }
+            }
+        }
     };
+}
+
+pub fn to_u8_vec(from: Vec3<f32>) -> Vec3<u8>
+{
+    Vec3::new(from.x as u8, from.y as u8, from.z as u8)
 }
 
 def_genvec!(Vec2, x, y);

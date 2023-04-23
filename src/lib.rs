@@ -1,5 +1,8 @@
 pub mod buffer_attachment;
+pub mod line;
 pub mod math;
+pub mod renderer;
+pub mod shader;
 
 #[cfg(test)]
 mod tests {
@@ -7,6 +10,7 @@ mod tests {
     use crate::{
         buffer_attachment::BufferAttachment,
         math::{Vec2, Vec3, Vec4},
+        shader::lerp,
     };
 
     #[test]
@@ -36,5 +40,15 @@ mod tests {
         assert_eq!(v1, Vec4::new(8.0, 2.0, 4.0, 8.0));
         let _v3: Vec3<i32> = Vec3::new(1, 2, 3);
         let _v4: Vec2<u32> = Vec2::new(1, 3);
+    }
+
+    #[test]
+    fn lerp_test() {
+        let s = 0.;
+        let e = 1.;
+        assert_eq!(lerp(s, e, 0.5), 0.5);
+        let s = Vec2::from(0.);
+        let e = Vec2::from(1.);
+        assert_eq!(lerp(s, e, 0.5), Vec2::from(0.5));
     }
 }

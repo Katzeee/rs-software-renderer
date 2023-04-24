@@ -37,6 +37,11 @@ mod tests {
         assert_eq!(v1 + v2, Vec4::new(2.0, 3.0, 5.0, 9.0));
         assert_eq!(v1.len_square(), 85.0);
         assert_eq!(v1.len(), 9.219544457292887);
+        assert_eq!(v1.dot(v2), 15.0f32);
+        assert_eq!(
+            Vec3::new(1, 0, 0).cross(Vec3::new(0, 1, 0)),
+            Vec3::new(0, 0, 1)
+        );
         v1.x = 8.0;
         assert_eq!(v1, Vec4::new(8.0, 2.0, 4.0, 8.0));
         let _v3: Vec3<i32> = Vec3::new(1, 2, 3);

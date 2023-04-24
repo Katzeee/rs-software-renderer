@@ -26,7 +26,7 @@ fn swap_context(img: &BufferAttachment<Vec3<u8>>) {
 
 fn main() {
     let app = app::App::default();
-    let mut renderer = Renderer::new(W as usize, H as usize);
+    let mut renderer = Renderer::new(W, H);
     // let mut wind = Window::new(100, 100, W as i32, H as i32, "Draw Line");
     let mut wind = Window::new(100, 100, W, H, "Draw Line");
 

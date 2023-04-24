@@ -1,7 +1,5 @@
 use fltk::{app, prelude::*, window::Window};
-use rs_software_renderer::{
-    buffer_attachment::BufferAttachment, line::*, math::*, renderer::*, shader::*,
-};
+use rs_software_renderer::{buffer_attachment::BufferAttachment, math::*, renderer::*, shader::*};
 
 const W: i32 = 1400;
 const H: i32 = 787;
@@ -18,7 +16,7 @@ fn swap_context(img: &BufferAttachment<Vec3<u8>>) {
 
 fn main() {
     let app = app::App::default();
-    let mut renderer = Renderer::new(W as usize, H as usize);
+    let mut renderer = Renderer::new(W, H);
     let mut wind = Window::new(100, 100, W, H, "Draw Triangle");
 
     let red = *Attributes::default().set_color(Vec3::new(255., 0., 0.));

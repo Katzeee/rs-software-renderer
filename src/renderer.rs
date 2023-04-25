@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::ops::{Add, Mul};
 
 use crate::{buffer_attachment::*, line::*, math::*, shader::*, triangle::*};
 pub struct Renderer {
@@ -7,6 +7,7 @@ pub struct Renderer {
     color_attachment: BufferAttachment<Vec3<u8>>,
     depth_attachment: BufferAttachment<f32>,
     pub should_draw_bound_box: bool,
+    pub should_show_depth: bool,
 }
 
 impl Renderer {
@@ -16,7 +17,8 @@ impl Renderer {
             width: width,
             color_attachment: BufferAttachment::new(width, height, Vec3::new(0, 0, 0)),
             depth_attachment: BufferAttachment::new(width, height, f32::MAX),
-            should_draw_bound_box: true,
+            should_draw_bound_box: false,
+            should_show_depth: false,
         }
     }
 
@@ -25,9 +27,12 @@ impl Renderer {
     }
 
     pub fn draw_line(&mut self, line: &Line) {
-        let (mut x0, mut y0) =
-            self.ndc_to_screen_space(line.start.position.x, line.start.position.y);
+        let (x0, y0) = self.ndc_to_screen_space(line.start.position.x, line.start.position.y);
+        let mut x0 = x0 as i32;
+        let mut y0 = y0 as i32;
         let (x1, y1) = self.ndc_to_screen_space(line.end.position.x, line.end.position.y);
+        let x1 = x1 as i32;
+        let y1 = y1 as i32;
         let dx: i32 = (x1 - x0).abs();
         let dy: i32 = (y1 - y0).abs();
         if x0 == x1 {
@@ -100,10 +105,14 @@ impl Renderer {
         let (x2, y2) = self.ndc_to_screen_space(triangle[2].position.x, triangle[2].position.y);
 
         // compute aabb box
-        let left = std::cmp::min(std::cmp::min(x0, x1), x2);
-        let right = std::cmp::max(std::cmp::max(x0, x1), x2);
-        let bottom = std::cmp::min(std::cmp::min(y0, y1), y2);
-        let top = std::cmp::max(std::cmp::max(y0, y1), y2);
+        let find_min_of_three =
+            |v1, v2, v3| std::cmp::min(std::cmp::min(v1 as i32, v2 as i32), v3 as i32);
+        let find_max_of_three =
+            |v1, v2, v3| std::cmp::max(std::cmp::max(v1 as i32, v2 as i32), v3 as i32);
+        let left = find_min_of_three(x0, x1, x2);
+        let right = find_max_of_three(x0, x1, x2);
+        let bottom = find_min_of_three(y0, y1, y2);
+        let top = find_max_of_three(y0, y1, y2);
 
         // draw bbox
         if self.should_draw_bound_box {
@@ -131,17 +140,44 @@ impl Renderer {
         }
 
         // draw triangle
+        let triangle_screen = [
+            Vec3::new(x0, y0, 0.),
+            Vec3::new(x1, y1, 0.),
+            Vec3::new(x2, y2, 0.),
+        ];
+
         for x in left..right {
             for y in bottom..top {
-                if self.in_triangle(
-                    &[
-                        Vec3::new(x0, y0, 0),
-                        Vec3::new(x1, y1, 0),
-                        Vec3::new(x2, y2, 0),
-                    ],
-                    Vec3::new(x, y, 0),
-                ) {
-                    self.color_attachment.set(x, y, Vec3::new(255, 0, 0));
+                let p_screen = Vec3::new(x as f32, y as f32, 0.);
+                if self.in_triangle(&triangle_screen, p_screen) {
+                    let (alpha, beta, gamma) = self.barycentric(&triangle_screen, p_screen);
+                    let z = -self.interpolate(
+                        alpha,
+                        beta,
+                        gamma,
+                        triangle[0].position.z,
+                        triangle[1].position.z,
+                        triangle[2].position.z,
+                    );
+                    if z > *self.depth_attachment.get(x, y) {
+                        continue;
+                    }
+                    let color = self.interpolate(
+                        alpha,
+                        beta,
+                        gamma,
+                        triangle[0].attrib.color,
+                        triangle[1].attrib.color,
+                        triangle[2].attrib.color,
+                    );
+                    if self.should_show_depth {
+                        let z = (z + 1.) / 2.;
+                        self.color_attachment
+                            .set(x, y, (Vec3::new(z, z, z) * 255.).to_u8());
+                    } else {
+                        self.color_attachment.set(x, y, color.to_u8());
+                    }
+                    self.depth_attachment.set(x, y, z);
                 }
             }
         }
@@ -151,9 +187,9 @@ impl Renderer {
         self.color_attachment.clear(Vec3::new(0, 0, 0));
     }
 
-    fn ndc_to_screen_space(&self, x: f32, y: f32) -> (i32, i32) {
-        let x = (((x + 1.) / 2.) * (self.width - 1) as f32) as i32;
-        let y = (((-y + 1.) / 2.) * (self.height - 1) as f32) as i32;
+    fn ndc_to_screen_space(&self, x: f32, y: f32) -> (f32, f32) {
+        let x = ((x + 1.) / 2.) * (self.width - 1) as f32;
+        let y = ((-y + 1.) / 2.) * (self.height - 1) as f32;
         (x, y)
     }
 
@@ -163,14 +199,32 @@ impl Renderer {
         (x, y)
     }
 
-    fn in_triangle(&self, v: &[Vec3<i32>; 3], p: Vec3<i32>) -> bool {
+    fn in_triangle(&self, v: &[Vec3<f32>; 3], p: Vec3<f32>) -> bool {
         let e1 = v[1] - v[0];
         let e2 = v[2] - v[1];
         let e3 = v[0] - v[2];
         // let p = Vec3::new(x, y, 0);
-        (p - v[0]).cross(e1).z > 0 && (p - v[1]).cross(e2).z > 0 && (p - v[2]).cross(e3).z > 0
+        ((p - v[0]).cross(e1).z > 0. && (p - v[1]).cross(e2).z > 0. && (p - v[2]).cross(e3).z > 0.)
+            || ((p - v[0]).cross(e1).z < 0.
+                && (p - v[1]).cross(e2).z < 0.
+                && (p - v[2]).cross(e3).z < 0.)
     }
 
-    // fn barycentric() ->
-    // fn interpolate
+    fn barycentric(&self, v: &[Vec3<f32>; 3], p: Vec3<f32>) -> (f32, f32, f32) {
+        let gamma = ((v[0].y - v[1].y) * p.x + (v[1].x - v[0].x) * p.y + v[0].x * v[1].y
+            - v[1].x * v[0].y)
+            / ((v[0].y - v[1].y) * v[2].x + (v[1].x - v[0].x) * v[2].y + v[0].x * v[1].y
+                - v[1].x * v[0].y);
+        let beta = ((v[0].y - v[2].y) * p.x + (v[2].x - v[0].x) * p.y + v[0].x * v[2].y
+            - v[2].x * v[0].y)
+            / ((v[0].y - v[2].y) * v[1].x + (v[2].x - v[0].x) * v[1].y + v[0].x * v[2].y
+                - v[2].x * v[0].y);
+        (1. - beta - gamma, beta, gamma)
+    }
+    fn interpolate<T>(&self, alpha: f32, beta: f32, gamma: f32, a: T, b: T, c: T) -> T
+    where
+        T: Mul<f32, Output = T> + Add<Output = T>,
+    {
+        a * alpha + b * beta + c * gamma
+    }
 }

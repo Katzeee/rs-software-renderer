@@ -1,6 +1,6 @@
 use std::ops::{Add, Mul};
 
-use crate::{buffer_attachment::*, line::*, math::*, shader::*, triangle::*};
+use crate::{buffer_attachment::*, camera::Camera, line::*, math::*, shader::*, triangle::*};
 pub struct Renderer {
     height: i32,
     width: i32,
@@ -8,6 +8,7 @@ pub struct Renderer {
     depth_attachment: BufferAttachment<f32>,
     pub should_draw_bound_box: bool,
     pub should_show_depth: bool,
+    pub should_draw_line: bool,
 }
 
 impl Renderer {
@@ -19,6 +20,7 @@ impl Renderer {
             depth_attachment: BufferAttachment::new(width, height, f32::MAX),
             should_draw_bound_box: false,
             should_show_depth: false,
+            should_draw_line: true,
         }
     }
 
@@ -95,9 +97,12 @@ impl Renderer {
     }
 
     pub fn draw_triangle(&mut self, triangle: Triangle) {
-        // self.draw_line(&Line::new(triangle[0], triangle[1]));
-        // self.draw_line(&Line::new(triangle[0], triangle[2]));
-        // self.draw_line(&Line::new(triangle[2], triangle[1]));
+        if self.should_draw_line {
+            self.draw_line(&Line::new(triangle[0], triangle[1]));
+            self.draw_line(&Line::new(triangle[0], triangle[2]));
+            self.draw_line(&Line::new(triangle[2], triangle[1]));
+            return;
+        }
 
         // compute the screen space coord
         let (x0, y0) = self.ndc_to_screen_space(triangle[0].position.x, triangle[0].position.y);
@@ -151,7 +156,7 @@ impl Renderer {
                 let p_screen = Vec3::new(x as f32, y as f32, 0.);
                 if self.in_triangle(&triangle_screen, p_screen) {
                     let (alpha, beta, gamma) = self.barycentric(&triangle_screen, p_screen);
-                    let z = -self.interpolate(
+                    let z = self.interpolate(
                         alpha,
                         beta,
                         gamma,
@@ -184,7 +189,23 @@ impl Renderer {
     }
 
     pub fn clear(&mut self) {
-        self.color_attachment.clear(Vec3::new(0, 0, 0));
+        self.color_attachment.clear(Vec3::from(0));
+        self.depth_attachment.clear(f32::MAX);
+    }
+
+    pub fn draw(&mut self, triangle: Triangle) {
+        let camera = Camera::default();
+        let m_matrix = Mat4::identity();
+        let v_matrix = camera.get_view_matrix();
+        let p_matrix = camera.get_projection_matrix();
+
+        let mvp = p_matrix * v_matrix * m_matrix;
+        let mut triangle = triangle;
+        for i in 0..3 {
+            let position_clip_space = mvp * Vec4::from_vec3(triangle[i].position, 1.);
+            triangle[i].position = position_clip_space.xyz() * (1. / position_clip_space.w);
+        }
+        self.draw_triangle(triangle);
     }
 
     fn ndc_to_screen_space(&self, x: f32, y: f32) -> (f32, f32) {

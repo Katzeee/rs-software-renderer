@@ -92,7 +92,7 @@ def_genvec!(Vec4, x, y, z, w);
 
 impl<T> Vec4<T>
 where
-    T: Copy,
+    T: Copy + Default + Mul<Output = T> + Add<Output = T>,
 {
     pub fn from_array(from: &[T]) -> Self {
         Self {
@@ -101,6 +101,19 @@ where
             z: from[2],
             w: from[3],
         }
+    }
+
+    pub fn from_vec3(xyz: Vec3<T>, w: T) -> Self {
+        Self {
+            x: xyz.x,
+            y: xyz.y,
+            z: xyz.z,
+            w: w,
+        }
+    }
+
+    pub fn xyz(&self) -> Vec3<T> {
+        Vec3::new(self.x, self.y, self.z)
     }
 }
 
@@ -118,11 +131,11 @@ where
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
-struct Mat4<T> {
+pub struct Mat4<T> {
     rows: [Vec4<T>; 4],
 }
 
-impl<T: Copy + Default> Mat4<T> {
+impl<T: Copy + Default + Mul<Output = T> + Add<Output = T>> Mat4<T> {
     pub fn new(rows: [Vec4<T>; 4]) -> Self {
         Self { rows: rows }
     }
@@ -134,6 +147,44 @@ impl<T: Copy + Default> Mat4<T> {
         }
         Self { rows: rows }
     }
+
+    pub fn col(&self, i: usize) -> Vec4<T> {
+        if i == 0 {
+            Vec4::new(
+                self.rows[0].x,
+                self.rows[1].x,
+                self.rows[2].x,
+                self.rows[3].x,
+            )
+        } else if i == 1 {
+            Vec4::new(
+                self.rows[0].y,
+                self.rows[1].y,
+                self.rows[2].y,
+                self.rows[3].y,
+            )
+        } else if i == 2 {
+            Vec4::new(
+                self.rows[0].z,
+                self.rows[1].z,
+                self.rows[2].z,
+                self.rows[3].z,
+            )
+        } else if i == 3 {
+            Vec4::new(
+                self.rows[0].w,
+                self.rows[1].w,
+                self.rows[2].w,
+                self.rows[3].w,
+            )
+        } else {
+            panic!("wrong i")
+        }
+    }
+
+    pub fn transpose(&self) -> Self {
+        Self::new([self.col(0), self.col(1), self.col(2), self.col(3)])
+    }
 }
 
 #[rustfmt::skip]
@@ -143,6 +194,15 @@ impl Mat4<f32> {
             1., 0., 0., 0.,
             0., 1., 0., 0.,
             0., 0., 1., 0.,
+            0., 0., 0., 1.,
+        ])
+    }
+
+    pub fn translate(x: f32, y: f32, z: f32) -> Self {
+        Mat4::from_array(&[
+            1., 0., 0., x,
+            0., 1., 0., y,
+            0., 0., 1., z,
             0., 0., 0., 1.,
         ])
     }
@@ -164,7 +224,7 @@ where
 
 impl<T> Mul<f32> for Mat4<T>
 where
-    T: Mul<f32, Output = T> + Copy + Default + Mul + Add,
+    T: Mul<f32, Output = T> + Copy + Default + Mul<Output = T> + Add<Output = T>,
 {
     type Output = Mat4<T>;
     fn mul(self, rhs: f32) -> Self::Output {
@@ -178,7 +238,7 @@ where
 
 impl<T> Mul<Mat4<T>> for f32
 where
-    T: Mul<f32, Output = T> + Default + Copy,
+    T: Mul<f32, Output = T> + Default + Copy + Mul<Output = T> + Add<Output = T>,
 {
     type Output = Mat4<T>;
     fn mul(self, rhs: Mat4<T>) -> Self::Output {
@@ -199,7 +259,7 @@ where
         let mut array: [T; 16] = Default::default();
         for i in 0..4 {
             for j in 0..4 {
-                array[i * 4 + j] = self.rows[i].dot(rhs.rows[j]);
+                array[i * 4 + j] = self.rows[i].dot(rhs.col(j));
             }
         }
         Self::from_array(&array)

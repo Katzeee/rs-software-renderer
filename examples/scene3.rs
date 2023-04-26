@@ -19,16 +19,17 @@ fn main() {
     let mut renderer = Renderer::new(W, H);
     let mut wind = Window::new(100, 100, W, H, "Draw Triangle");
 
-    let red = *Attributes::default().set_color(Vec3::new(255., 0., 0.));
-    let blue = *Attributes::default().set_color(Vec3::new(0., 0., 255.));
-    let green = *Attributes::default().set_color(Vec3::new(0., 255., 0.));
-    let v1 = *Vertex::new(Vec3::new(-0.5, 0., 1.)).set_attr(green);
-    let v2 = *Vertex::new(Vec3::new(0.5, 0., 0.)).set_attr(blue);
-    let v3 = *Vertex::new(Vec3::new(0., 0.5, 0.5)).set_attr(red);
+
+    let col1 = *Attributes::default().set_color(Vec3::new(217., 238., 185.));
+    let col2 = *Attributes::default().set_color(Vec3::new(185., 217., 238.));
+
+    let v1 = *Vertex::new(Vec3::new(2., 0., -2.)).set_attr(col1);
+    let v2 = *Vertex::new(Vec3::new(0., 2., -2.)).set_attr(col1);
+    let v3 = *Vertex::new(Vec3::new(-2., 0., -2.)).set_attr(col1);
     let triangle1 = [v1, v2, v3];
-    let v1 = *Vertex::new(Vec3::new(-0.5, 0.5, -0.8)).set_attr(green);
-    let v2 = *Vertex::new(Vec3::new(0., 0., 0.8)).set_attr(red);
-    let v3 = *Vertex::new(Vec3::new(0.5, 0.5, 0.5)).set_attr(blue);
+    let v1 = *Vertex::new(Vec3::new(3.4, -1., -5.)).set_attr(col2);
+    let v2 = *Vertex::new(Vec3::new(2.5, 1.5, -5.)).set_attr(col2);
+    let v3 = *Vertex::new(Vec3::new(-1., 0.5, -5.)).set_attr(col2);
     let triangle2 = [v1, v2, v3];
 
     // renderer.should_show_depth = true;
@@ -36,10 +37,8 @@ fn main() {
 
     wind.draw(move |_| {
         renderer.clear();
-        // renderer.draw(triangle1);
-        // renderer.draw(triangle2);
-        renderer.draw_triangle(triangle1);
-        renderer.draw_triangle(triangle2);
+        renderer.draw(triangle1);
+        renderer.draw(triangle2);
         swap_context(renderer.get_color_attachment())
     });
 

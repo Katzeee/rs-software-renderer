@@ -4,6 +4,7 @@ pub mod math;
 pub mod renderer;
 pub mod shader;
 pub mod triangle;
+pub mod camera;
 
 #[cfg(test)]
 mod tests {

@@ -71,6 +71,15 @@ macro_rules! def_genvec {
         impl_op!($class_name, Mul, mul, * $(, $attr_name)+);
         impl_op!($class_name, Div, div, / $(, $attr_name)+);
 
+        impl<T: Div<f32, Output = T>> Div<f32> for $class_name<T> {
+            type Output = Self;
+            fn div(self, rhs: f32) -> Self {
+                Self {
+                    $($attr_name: self.$attr_name / rhs,)+
+                }
+            }
+        }
+
         impl<T: Mul<f32, Output = T>> Mul<f32> for $class_name<T> {
             type Output = Self;
             fn mul(self, rhs: f32) -> Self {

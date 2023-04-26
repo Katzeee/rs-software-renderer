@@ -19,26 +19,24 @@ fn main() {
     let mut renderer = Renderer::new(W, H);
     let mut wind = Window::new(100, 100, W, H, "Draw Triangle");
 
-
     let col1 = *Attributes::default().set_color(Vec3::new(217., 238., 185.));
     let col2 = *Attributes::default().set_color(Vec3::new(185., 217., 238.));
 
-    let v1 = *Vertex::new(Vec3::new(2., 0., -2.)).set_attr(col1);
-    let v2 = *Vertex::new(Vec3::new(0., 2., -2.)).set_attr(col1);
-    let v3 = *Vertex::new(Vec3::new(-2., 0., -2.)).set_attr(col1);
-    let triangle1 = [v1, v2, v3];
-    let v1 = *Vertex::new(Vec3::new(3.4, -1., -5.)).set_attr(col2);
-    let v2 = *Vertex::new(Vec3::new(2.5, 1.5, -5.)).set_attr(col2);
-    let v3 = *Vertex::new(Vec3::new(-1., 0.5, -5.)).set_attr(col2);
-    let triangle2 = [v1, v2, v3];
+    let mut vertices = Vec::new();
+    vertices.push(*Vertex::new(Vec3::new(2., 0., -2.)).set_attr(col1));
+    vertices.push(*Vertex::new(Vec3::new(0., 2., -2.)).set_attr(col1));
+    vertices.push(*Vertex::new(Vec3::new(-2., 0., -2.)).set_attr(col1));
+    vertices.push(*Vertex::new(Vec3::new(3.4, -1., -5.)).set_attr(col2));
+    vertices.push(*Vertex::new(Vec3::new(2.5, 1.5, -5.)).set_attr(col2));
+    vertices.push(*Vertex::new(Vec3::new(-1., 0.5, -5.)).set_attr(col2));
+    let indices = vec![0, 1, 2, 3, 4, 5];
 
     // renderer.should_show_depth = true;
     renderer.should_draw_line = false;
 
     wind.draw(move |_| {
         renderer.clear();
-        renderer.draw(triangle1);
-        renderer.draw(triangle2);
+        renderer.draw(&mut vertices, &indices);
         swap_context(renderer.get_color_attachment())
     });
 

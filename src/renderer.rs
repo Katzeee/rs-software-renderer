@@ -96,14 +96,8 @@ impl Renderer {
         */
     }
 
+    // triangle in ndc space
     pub fn draw_triangle(&mut self, triangle: Triangle) {
-        if self.should_draw_line {
-            self.draw_line(&Line::new(triangle[0], triangle[1]));
-            self.draw_line(&Line::new(triangle[0], triangle[2]));
-            self.draw_line(&Line::new(triangle[2], triangle[1]));
-            return;
-        }
-
         // compute the screen space coord
         let (x0, y0) = self.ndc_to_screen_space(triangle[0].position.x, triangle[0].position.y);
         let (x1, y1) = self.ndc_to_screen_space(triangle[1].position.x, triangle[1].position.y);
@@ -118,6 +112,19 @@ impl Renderer {
         let right = find_max_of_three(x0, x1, x2);
         let bottom = find_min_of_three(y0, y1, y2);
         let top = find_max_of_three(y0, y1, y2);
+
+        // clip
+        if left < 0 || bottom < 0 || right >= self.width || top >= self.height {
+            return;
+        }
+
+        // draw_line
+        if self.should_draw_line {
+            self.draw_line(&Line::new(triangle[0], triangle[1]));
+            self.draw_line(&Line::new(triangle[0], triangle[2]));
+            self.draw_line(&Line::new(triangle[2], triangle[1]));
+            return;
+        }
 
         // draw bbox
         if self.should_draw_bound_box {
@@ -193,19 +200,26 @@ impl Renderer {
         self.depth_attachment.clear(f32::MAX);
     }
 
-    pub fn draw(&mut self, triangle: Triangle) {
+    pub fn draw(&mut self, vertices: &mut Vec<Vertex>, indices: &Vec<usize>) {
+        if vertices.len() != indices.len() || vertices.len() % 3 != 0 {
+            return;
+        }
+
         let camera = Camera::default();
         let m_matrix = Mat4::identity();
         let v_matrix = camera.get_view_matrix();
         let p_matrix = camera.get_projection_matrix();
-
         let mvp = p_matrix * v_matrix * m_matrix;
-        let mut triangle = triangle;
-        for i in 0..3 {
-            let position_clip_space = mvp * Vec4::from_vec3(triangle[i].position, 1.);
-            triangle[i].position = position_clip_space.xyz() * (1. / position_clip_space.w);
+
+        for i in 0..vertices.len() / 3 {
+            for j in 0..3 {
+                let vertex = &mut vertices[3 * i + j];
+                let position_clip_space = mvp * Vec4::from_vec3(vertex.position, 1.);
+                vertex.position = position_clip_space.xyz() / position_clip_space.w;
+            }
+            let triangle = [vertices[i * 3], vertices[i * 3 + 1], vertices[i * 3 + 2]];
+            self.draw_triangle(triangle);
         }
-        self.draw_triangle(triangle);
     }
 
     fn ndc_to_screen_space(&self, x: f32, y: f32) -> (f32, f32) {

@@ -17,6 +17,18 @@ macro_rules! impl_op {
     };
 }
 
+macro_rules! impl_op_assign {
+    ($class_name:ident, $op_trait_name:ident, $func_name:ident, $op:tt, $($attr_name:ident),+) => {
+        impl<T: $op_trait_name>  $op_trait_name for $class_name<T> {
+            fn $func_name(&mut self, rhs: Self) {
+                $(
+                    self.$attr_name $op rhs.$attr_name;
+                )+
+            }
+        }
+    };
+}
+
 macro_rules! def_genvec {
     ($class_name:ident, $($attr_name:ident), +) => {
         #[derive(Debug, PartialEq, Copy, Clone, Default)]
@@ -70,6 +82,8 @@ macro_rules! def_genvec {
         impl_op!($class_name, Sub, sub, - $(, $attr_name)+);
         impl_op!($class_name, Mul, mul, * $(, $attr_name)+);
         impl_op!($class_name, Div, div, / $(, $attr_name)+);
+
+        impl_op_assign!($class_name, AddAssign, add_assign, += $(, $attr_name)+);
 
         impl<T: Div<f32, Output = T>> Div<f32> for $class_name<T> {
             type Output = Self;
@@ -272,6 +286,19 @@ where
             }
         }
         Self::from_array(&array)
+    }
+}
+
+pub fn saturate<T>(from: T, to: T, value: T) -> T
+where
+    T: Copy + PartialOrd,
+{
+    if value < from {
+        from
+    } else if value > to {
+        to
+    } else {
+        value
     }
 }
 

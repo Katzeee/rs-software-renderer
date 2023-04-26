@@ -6,6 +6,7 @@ pub struct Renderer {
     width: i32,
     color_attachment: BufferAttachment<Vec3<u8>>,
     depth_attachment: BufferAttachment<f32>,
+    pub camera: Camera,
     pub should_draw_bound_box: bool,
     pub should_show_depth: bool,
     pub should_draw_line: bool,
@@ -18,6 +19,7 @@ impl Renderer {
             width: width,
             color_attachment: BufferAttachment::new(width, height, Vec3::new(0, 0, 0)),
             depth_attachment: BufferAttachment::new(width, height, f32::MAX),
+            camera: Camera::default(),
             should_draw_bound_box: false,
             should_show_depth: false,
             should_draw_line: true,
@@ -41,13 +43,19 @@ impl Renderer {
             for i in std::cmp::min(y0, y1)..std::cmp::max(y0, y1) {
                 let t: f32 = i as f32 / dy as f32;
                 let color = lerp(line.start.attrib.color, line.end.attrib.color, t);
-                self.color_attachment.set(x0, i, color.to_u8());
+
+                if x0 >= 0 && x0 < self.width && i >= 0 && i < self.height {
+                    self.color_attachment.set(x0, i, color.to_u8());
+                }
             }
         } else if y0 == y1 {
             for i in std::cmp::min(x0, x1)..std::cmp::max(x0, x1) {
                 let t: f32 = i as f32 / dx as f32;
                 let color = lerp(line.start.attrib.color, line.end.attrib.color, t);
-                self.color_attachment.set(i, y0, color.to_u8());
+
+                if i >= 0 && i < self.width && y0 >= 0 && y0 < self.height {
+                    self.color_attachment.set(i, y0, color.to_u8());
+                }
             }
         } else {
             let sx: i32 = if x0 < x1 { 1 } else { -1 };
@@ -62,8 +70,10 @@ impl Renderer {
                 }
                 let color = lerp(line.start.attrib.color, line.end.attrib.color, t).to_u8();
                 t += dt;
-                self.color_attachment.set(x0, y0, color);
                 e2 = err;
+                if x0 >= 0 && x0 < self.width && y0 >= 0 && y0 < self.height {
+                    self.color_attachment.set(x0, y0, color);
+                }
                 if e2 > -dx {
                     err -= dy;
                     x0 += sx;
@@ -108,15 +118,10 @@ impl Renderer {
             |v1, v2, v3| std::cmp::min(std::cmp::min(v1 as i32, v2 as i32), v3 as i32);
         let find_max_of_three =
             |v1, v2, v3| std::cmp::max(std::cmp::max(v1 as i32, v2 as i32), v3 as i32);
-        let left = find_min_of_three(x0, x1, x2);
-        let right = find_max_of_three(x0, x1, x2);
-        let bottom = find_min_of_three(y0, y1, y2);
-        let top = find_max_of_three(y0, y1, y2);
-
-        // clip
-        if left < 0 || bottom < 0 || right >= self.width || top >= self.height {
-            return;
-        }
+        let left = std::cmp::max(find_min_of_three(x0, x1, x2), 0);
+        let right = std::cmp::min(find_max_of_three(x0, x1, x2), self.width);
+        let bottom = std::cmp::max(find_min_of_three(y0, y1, y2), 0);
+        let top = std::cmp::min(find_max_of_three(y0, y1, y2), self.height);
 
         // draw_line
         if self.should_draw_line {
@@ -201,23 +206,22 @@ impl Renderer {
     }
 
     pub fn draw(&mut self, vertices: &mut Vec<Vertex>, indices: &Vec<usize>) {
-        if vertices.len() != indices.len() || vertices.len() % 3 != 0 {
+        if indices.len() % 3 != 0 {
             return;
         }
 
-        let camera = Camera::default();
         let m_matrix = Mat4::identity();
-        let v_matrix = camera.get_view_matrix();
-        let p_matrix = camera.get_projection_matrix();
+        let v_matrix = self.camera.get_view_matrix();
+        let p_matrix = self.camera.get_projection_matrix();
         let mvp = p_matrix * v_matrix * m_matrix;
 
-        for i in 0..vertices.len() / 3 {
+        for i in 0..indices.len() / 3 {
+            let mut triangle: [Vertex; 3] = Default::default();
             for j in 0..3 {
-                let vertex = &mut vertices[3 * i + j];
-                let position_clip_space = mvp * Vec4::from_vec3(vertex.position, 1.);
-                vertex.position = position_clip_space.xyz() / position_clip_space.w;
+                triangle[j] = vertices[indices[3 * i + j]];
+                let position_clip_space = mvp * Vec4::from_vec3(triangle[j].position, 1.);
+                triangle[j].position = position_clip_space.xyz() / position_clip_space.w;
             }
-            let triangle = [vertices[i * 3], vertices[i * 3 + 1], vertices[i * 3 + 2]];
             self.draw_triangle(triangle);
         }
     }

@@ -27,7 +27,7 @@ impl Default for Attributes {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Default)]
 pub struct Vertex {
     pub position: Vec3<f32>,
     pub attrib: Attributes,

@@ -8,7 +8,7 @@ pub struct Camera {
     far: f32,
     fovy: f32,
     aspect: f32,
-    pos: Vec3<f32>,
+    pub pos: Vec3<f32>,
     target: Vec3<f32>,
     up: Vec3<f32>,
 }
@@ -20,7 +20,7 @@ impl Default for Camera {
             far: 50.0,
             fovy: 45.0,
             aspect: 1.,
-            pos: Vec3::new(0., 0., 5.),
+            pos: Vec3::new(0., 0., 3.),
             target: Vec3::from(0.),
             up: Vec3::new(0., 1., 0.),
         }
@@ -50,5 +50,16 @@ impl Camera {
             Vec4::from_vec3(z, 0.), 
             Vec4::new(0., 0., 0., 1.)
         ]).transpose() * Mat4::translate(-self.pos.x, -self.pos.y, -self.pos.z)
+    }
+
+    pub fn move_forward(&mut self, offset: f32) {
+        let dir = (self.target - self.pos).normalize();
+        self.pos += dir * offset;
+    }
+
+    pub fn move_aside(&mut self, offset: f32) {
+        let dir = (self.target - self.pos).normalize();
+        let left_dir = self.up.cross(dir).normalize();
+        self.pos += left_dir * offset;
     }
 }
